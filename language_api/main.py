@@ -1,14 +1,18 @@
 from datetime import datetime
 import logging
+from json2html import *
 import os
-
+import random
+import pandas as pd
+import numpy as np
+import io
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
 from flask import Flask, redirect, render_template, request
 
 from google.cloud import datastore
 from google.cloud import language_v1 as language
-
-
-
 
 app = Flask(__name__)
 
@@ -23,17 +27,27 @@ def homepage():
     # store them in upload_text()
     query = datastore_client.query(kind="Sentences")
     text_entities = list(query.fetch())
+    query = datastore_client.query(kind="entity_analysis")
+    entity_analysis = list(query.fetch())
+    query = datastore_client.query(kind="entity_sentiment_analysis")
+    entity_sentiment_analysis = list(query.fetch())
+    mydatata = pd.DataFrame(entity_sentiment_analysis)
+    new_graph_name = "graph" + str(datetime.now().time()) + ".png"
+    mydatata.plot(x='magnitude', y='sentiment', kind='scatter')
+    plt.savefig('templates/' + new_graph_name)
 
-    # # Return a Jinja2 HTML template and pass in text_entities as a parameter.
-    return render_template("homepage.html", text_entities=text_entities)
+    return render_template("homepage.html", graph=new_graph_name, ext_entities=text_entities,
+                           entity_analysis_list=entity_analysis, entity_sentiment_analysis=entity_sentiment_analysis)
 
 
 @app.route("/upload", methods=["GET", "POST"])
 def upload_text():
     text = request.form["text"]
+    input_lang = request.form["language"]
     # Analyse sentiment using Sentiment API call
-    sentiment = analyze_text_sentiment(text)[0].get('sentiment score')
-    entity_analysis = gcp_analyze_entities(text)
+    sentiment = analyze_text_sentiment(text, input_lang)[0].get('sentiment score')
+    entity_analysis_response = gcp_analyze_entities(text)
+
     # Assign a label based on the score
     overall_sentiment = 'unknown'
     if sentiment > 0:
@@ -58,14 +72,54 @@ def upload_text():
     # Construct the new entity using the key. Set dictionary values for entity
     entity = datastore.Entity(key)
     entity["text"] = text
+    entity["lang"] = input_lang
     entity["timestamp"] = current_datetime
     entity["sentiment"] = overall_sentiment
-    entity["entity_analysis"] = entity_analysis
 
     # Save the new entity to Datastore.
     datastore_client.put(entity)
 
-    # Redirect to the home page.
+    ## Store entity analysis
+    entity_analysis_kind = "entity_analysis"
+
+    # Create the Cloud Datastore key for the new entity.
+    for entity in entity_analysis_response.entities:
+        entity_analysis_key = datastore_client.key(entity_analysis_kind)
+        entity_analysis = datastore.Entity(entity_analysis_key)
+        entity_analysis["text"] = text
+        entity_analysis["lang"] = input_lang
+        entity_analysis["name"] = entity.name
+        entity_analysis["type"] = language.Entity.Type(entity.type_).name
+        entity_analysis["timestamp"] = current_datetime
+        entity_analysis["salience"] = entity.salience
+        datastore_client.put(entity_analysis)
+
+    if input_lang == 'en':
+        entity_sent_analysis_response = gcp_analyze_entity_sentiment(text, input_lang)
+        ## Store entity sentiment analysis
+        entity_sent_analysis_kind = "entity_sentiment_analysis"
+        for entity_sent in entity_sent_analysis_response.entities:
+            entity_sent_analysis_key = datastore_client.key(entity_sent_analysis_kind)
+            entity_sentiment = datastore.Entity(entity_sent_analysis_key)
+            calculated_sentiment = entity_sent.sentiment
+            overall_sentiment = 'unknown'
+            if calculated_sentiment.score > 0:
+                overall_sentiment = 'positive'
+            if calculated_sentiment.score < 0:
+                overall_sentiment = 'negative'
+            if calculated_sentiment.score == 0:
+                overall_sentiment = 'neutral'
+            entity_sentiment["text"] = text
+            entity_sentiment["lang"] = input_lang
+            entity_sentiment["name"] = entity_sent.name
+            entity_sentiment["type"] = language.Entity.Type(entity.type_).name
+            entity_sentiment["timestamp"] = current_datetime
+            entity_sentiment["sentiment"] = overall_sentiment
+            entity_sentiment["magnitude"] = calculated_sentiment.magnitude
+            entity_sentiment["salience"] = entity_sent.salience
+            datastore_client.put(entity_analysis)
+
+            # Redirect to the home page.
     return redirect("/")
 
 
@@ -81,9 +135,11 @@ def server_error(e):
         ),
         500,
     )
-def analyze_text_sentiment(text):
+
+
+def analyze_text_sentiment(text, input_lang):
     client = language.LanguageServiceClient()
-    document = language.Document(content=text, type_=language.Document.Type.PLAIN_TEXT)
+    document = language.Document(content=text, type_=language.Document.Type.PLAIN_TEXT, language=input_lang)
 
     response = client.analyze_sentiment(document=document)
 
@@ -99,10 +155,10 @@ def analyze_text_sentiment(text):
     # Get sentiment for all sentences in the document
     sentence_sentiment = []
     for sentence in response.sentences:
-        item={}
-        item["text"]=sentence.text.content
-        item["sentiment score"]=sentence.sentiment.score
-        item["sentiment magnitude"]=sentence.sentiment.magnitude
+        item = {}
+        item["text"] = sentence.text.content
+        item["sentiment score"] = sentence.sentiment.score
+        item["sentiment magnitude"] = sentence.sentiment.magnitude
         sentence_sentiment.append(item)
 
     return sentence_sentiment
@@ -163,7 +219,24 @@ def gcp_analyze_entities(text, debug=0):
     if debug:
         print(u"Language of the text: {}".format(response.language))
 
-    return (output)
+    return response
+
+
+def gcp_analyze_entity_sentiment(text, input_lang, debug=0):
+    """
+    Analyzing Entities in a String
+
+    Args:
+      text_content The text content to analyze
+    """
+
+    client = language.LanguageServiceClient()
+    document = language.Document(content=text, type_=language.Document.Type.PLAIN_TEXT, language=input_lang)
+    response = client.analyze_entity_sentiment(document=document)
+
+    return response
+
+
 if __name__ == "__main__":
     # This is used when running locally. Gunicorn is used to run the
     # application on Google App Engine. See entrypoint in app.yaml.

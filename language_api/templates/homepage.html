@@ -1,20 +1,90 @@
-<h1>Google Cloud Platform - Natural Language API</h1>
-
-<p>This Python Flask application demonstrates App Engine Flexible, Datastore, and the Natural Language API.</p>
-
-<br>
-
 <html>
+   <head><link rel="stylesheet" type="text/css" href="/templates/main.css">
+    <style>
+body            { font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;}
+a, h1, h2       { color: #377ba8; }
+h1, h2          { margin: 0; }
+h1              { border-bottom: 2px solid #eee; }
+h2              { font-size: 1.2em; }
+
+table.dataframe, .dataframe th, .dataframe td {
+  border: none;
+  border-bottom: 1px solid #C8C8C8;
+  border-collapse: collapse;
+  text-align:left;
+  padding: 10px;
+  margin-bottom: 40px;
+  font-size: 0.9em;
+}
+
+.sentimate th {
+    background-color: #add8e6;
+    color: white;
+}
+
+.entity th {
+    background-color: #77dd77;
+    color: white;
+}
+
+tr:nth-child(odd)		{ background-color:#eee; }
+tr:nth-child(even)	{ background-color:#fff; }
+
+tr:hover            { background-color: #ffff99;}
+</style>
+</head>
   <body>
     <form action="upload" method="POST" enctype="multipart/form-data">
-      Upload Text: <input type="text" name="text"><br>
+      Upload Text: <input type="text" name="text">
+      <select name="language" id="language">
+        <option value="en">English</option>
+        <option value="de">German</option>
+     </select>
       <input type="submit" name="submit" value="Submit">
     </form>
-    {% for text_entity in text_entities %}
-      <p>Text: {{text_entity['text']}}</p>
-      <p>Uploaded: {{text_entity['timestamp']}}</p>
-      <p>Overall Sentiment: {{text_entity['sentiment']}}</p>
-      <p>Entity Analysis: {{text_entity['entity_analysis']}}</p>
+    <h1>Sample Graph</h1>
+      <img src="{{ url_for('.', filename=graph) }}" />
+    <br><br>
+    <table class="dataframe">
+        <thead><th>Original Text</th><th>Language</th><th>Uploaded date</th><th>Entity</th><th>Type</th><th>Salience</th><th>Overall Sentiment</th><th>Magnitude</th></thead></thead>
+    {% for entity_sent_analysis in entity_sentiment_analysis %}
+    <tr>
+      <td>{{entity_sent_analysis['text']}}</td>
+      <td>{{entity_sent_analysis['lang']}}</td>
+      <td>{{entity_sent_analysis['timestamp']}}</td>
+      <td>{{entity_sent_analysis['name']}}</td>
+      <td>{{entity_sent_analysis['type']}}</td>
+      <td>{{entity_sent_analysis['salience']}}</td>
+      <td>{{entity_sent_analysis['sentiment']}}</td>
+      <td>{{entity_sent_analysis['magnitude']}}</td>
+      </tr>
     {% endfor %}
+    </table>
+    <table class="dataframe">
+        <thead><th>Original Text</th><th>Language</th><th>Uploaded date</th><th>Overall Sentiment</th></thead>
+    {% for text_entity in text_entities %}
+    <tr>
+      <td>{{text_entity['text']}}</td>
+      <td>{{text_entity['lang']}}</td>
+      <td>{{text_entity['timestamp']}}</td>
+      <td>{{text_entity['sentiment']}}</td>
+      </tr>
+    {% endfor %}
+    </table >
+    <br>
+    <br>
+    <table class="dataframe">
+        <thead><th>Original Text</th><th>Language</th><th>Uploaded date</th><th>Entity</th><th>Type</th><th>Salience</th></thead>
+    {% for entity_analysis in entity_analysis_list %}
+    <tr>
+      <td>{{entity_analysis['text']}}</td>
+      <td>{{entity_analysis['lang']}}</td>
+      <td>{{entity_analysis['timestamp']}}</td>
+      <td>{{entity_analysis['name']}}</td>
+      <td>{{entity_analysis['type']}}</td>
+      <td>{{entity_analysis['salience']}}</td>
+      </tr>
+    {% endfor %}
+    </table>
   </body>
 </html> 
