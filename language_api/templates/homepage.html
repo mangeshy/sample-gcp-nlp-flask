@@ -1,8 +1,8 @@
 <html>
    <head><link rel="stylesheet" type="text/css" href="/templates/main.css">
     <style>
-body            { font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;}
-a, h1, h2       { color: #377ba8; }
+        body            { font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;}
+    a, h1, h2       { color: #377ba8; }
 h1, h2          { margin: 0; }
 h1              { border-bottom: 2px solid #eee; }
 h2              { font-size: 1.2em; }
@@ -35,16 +35,17 @@ tr:hover            { background-color: #ffff99;}
 </head>
   <body>
     <form action="upload" method="POST" enctype="multipart/form-data">
-      Upload Text: <input type="text" name="text">
+      Analyze text: <input type="text" name="text">
       <select name="language" id="language">
         <option value="en">English</option>
         <option value="de">German</option>
+        <option value="es">Spanish</option>
      </select>
       <input type="submit" name="submit" value="Submit">
     </form>
-    <h1>Sample Graph</h1>
-      <img src="{{ url_for('.', filename=graph) }}" />
     <br><br>
+
+    <h1> Entity Statement Analysis</h1>
     <table class="dataframe">
         <thead><th>Original Text</th><th>Language</th><th>Uploaded date</th><th>Entity</th><th>Type</th><th>Salience</th><th>Overall Sentiment</th><th>Magnitude</th></thead></thead>
     {% for entity_sent_analysis in entity_sentiment_analysis %}
@@ -60,6 +61,8 @@ tr:hover            { background-color: #ffff99;}
       </tr>
     {% endfor %}
     </table>
+    <h1> Test Sentiment Analysis</h1>
+    <br>
     <table class="dataframe">
         <thead><th>Original Text</th><th>Language</th><th>Uploaded date</th><th>Overall Sentiment</th></thead>
     {% for text_entity in text_entities %}
@@ -73,6 +76,7 @@ tr:hover            { background-color: #ffff99;}
     </table >
     <br>
     <br>
+    <h1> Entity  Analysis</h1>
     <table class="dataframe">
         <thead><th>Original Text</th><th>Language</th><th>Uploaded date</th><th>Entity</th><th>Type</th><th>Salience</th></thead>
     {% for entity_analysis in entity_analysis_list %}

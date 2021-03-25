@@ -1,11 +1,13 @@
 from datetime import datetime
 import logging
+import io
 from json2html import *
+from io import StringIO
+import base64
 import os
 import random
 import pandas as pd
 import numpy as np
-import io
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -31,12 +33,18 @@ def homepage():
     entity_analysis = list(query.fetch())
     query = datastore_client.query(kind="entity_sentiment_analysis")
     entity_sentiment_analysis = list(query.fetch())
-    mydatata = pd.DataFrame(entity_sentiment_analysis)
-    new_graph_name = "graph" + str(datetime.now().time()) + ".png"
-    mydatata.plot(x='magnitude', y='sentiment', kind='scatter')
-    plt.savefig('templates/' + new_graph_name)
 
-    return render_template("homepage.html", graph=new_graph_name, ext_entities=text_entities,
+    mydata = pd.DataFrame(entity_sentiment_analysis)
+
+    if not mydata.empty:
+        mydata.magnitude = pd.to_numeric(mydata.magnitude)
+        mydata.sentiment_score = pd.to_numeric(mydata.sentiment_score)
+        mydata.plot(x='magnitude', y='sentiment_score', kind='scatter')
+        print("generating the image !")
+    else:
+        emptycheck = 1
+        plot_url = "none"
+    return render_template("homepage.html", plot_url=plot_url, emptycheck=emptycheck, text_entities=text_entities,
                            entity_analysis_list=entity_analysis, entity_sentiment_analysis=entity_sentiment_analysis)
 
 
@@ -94,7 +102,7 @@ def upload_text():
         entity_analysis["salience"] = entity.salience
         datastore_client.put(entity_analysis)
 
-    if input_lang == 'en':
+    if not input_lang == 'de':
         entity_sent_analysis_response = gcp_analyze_entity_sentiment(text, input_lang)
         ## Store entity sentiment analysis
         entity_sent_analysis_kind = "entity_sentiment_analysis"
@@ -115,9 +123,10 @@ def upload_text():
             entity_sentiment["type"] = language.Entity.Type(entity.type_).name
             entity_sentiment["timestamp"] = current_datetime
             entity_sentiment["sentiment"] = overall_sentiment
+            entity_sentiment["sentiment_score"] = calculated_sentiment.score
             entity_sentiment["magnitude"] = calculated_sentiment.magnitude
             entity_sentiment["salience"] = entity_sent.salience
-            datastore_client.put(entity_analysis)
+            datastore_client.put(entity_sentiment)
 
             # Redirect to the home page.
     return redirect("/")
